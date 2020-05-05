@@ -31,15 +31,78 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("SliceThrput");
 
+#define DLPORT1 10000
+#define DLPORT2 10001
+
 uint32_t ByteCounter1 = 0;
 uint32_t oldByteCounter1 = 0;
 uint32_t ByteCounter2 = 0;
 uint32_t oldByteCounter2 = 0;
 
+const uint16_t numberOfUes = 2;
+const uint16_t numberOfEnbs = 1;
+
+uint16_t numBearersPerUe = 1;
+double distance = 120.0; // m
+
+double simTime = (double)(1) ; //  sec
+
+double enbTxPowerDbm = 46.0;
+// Install and start applications on UEs and remote host
+const uint16_t dlPort[numberOfUes] = {10000,10001};
+const uint16_t ulPort[numberOfUes] = {20000,20001};//
+
 
 void Ue1ReceivePacket (Ptr<const Packet> packet, const Address &srcAddress, const Address &destAddress);
 void Throughput(bool firstWrite, Time binSize, std::string fileName);
+void PrintUePosition (uint64_t imsi);
+void PrintLocation()
+{
+  PrintUePosition(1);
+  PrintUePosition(2);
+}
 
+void
+Ue1ReceivePacket (Ptr<const Packet> packet, const Address &srcAddress, const Address &destAddress)
+{
+  // InetSocketAddress::ConvertFrom(destAddress).GetIpv4 ();
+  switch(InetSocketAddress::ConvertFrom (destAddress).GetPort ())
+  {
+    case DLPORT1:
+      ByteCounter1 += packet->GetSize ();
+      break;
+    case DLPORT2:
+      ByteCounter2 += packet->GetSize ();
+      break;
+  }
+
+  //std::cout<<"ByteCounter1:"<<ByteCounter1<<std::endl;
+}
+
+void
+Throughput(bool firstWrite, Time binSize, std::string fileName)
+{
+  std::ofstream output;
+
+  if (firstWrite == true)
+    {
+      output.open (fileName.c_str (), std::ofstream::out);
+      firstWrite = false;
+    }
+  else
+    {
+      output.open (fileName.c_str (), std::ofstream::app);
+    }
+
+  //Instantaneous throughput every 200 ms
+  double  throughput1 = (ByteCounter1 - oldByteCounter1)*8/binSize.GetSeconds ()/1024/1024;
+  double  throughput2 = (ByteCounter2 - oldByteCounter2)*8/binSize.GetSeconds ()/1024/1024;
+  output << Simulator::Now().GetSeconds() << " " << throughput1 << " " << throughput2 << std::endl;
+  // std::cout << Simulator::Now().GetSeconds() << " " << throughput << std::endl;
+  oldByteCounter1 = ByteCounter1;
+  oldByteCounter2 = ByteCounter2;
+  Simulator::Schedule (binSize, &Throughput, firstWrite, binSize, fileName);
+}
 
 void
 PrintUePosition (uint64_t imsi)
@@ -65,32 +128,12 @@ PrintUePosition (uint64_t imsi)
     }
 }
 
-void
-PrintLocation()
-{
-  PrintUePosition(1);
-  PrintUePosition(2);
-}
+/**×××××××××××××××××××××××××××××××××××××××××××××××××××××××××××××××××××××
 
-  const uint16_t numberOfUes = 2;
-  const uint16_t numberOfEnbs = 1;
+                      主函数
 
-  uint16_t numBearersPerUe = 1;
-  double distance = 120.0; // m
+××××××××××××××××××××××××××××××××××××××××××××××××××××××××××××××××××××××××*/
 
-  double simTime = (double)(1) ; //  sec
- 
-  double enbTxPowerDbm = 46.0;
-  // Install and start applications on UEs and remote host
-  const uint16_t dlPort[numberOfUes] = {10000,10001};
-  const uint16_t ulPort[numberOfUes] = {20000,20001};
-
-  #define DLPORT1 10000
-  #define DLPORT2 10001
-
-/**
-
- */
 int
 main (int argc, char *argv[])
 {
@@ -118,12 +161,42 @@ main (int argc, char *argv[])
   Config::SetDefault ("ns3::UdpClient::MaxPackets", UintegerValue (1000000));
   Config::SetDefault ("ns3::LteHelper::UseIdealRrc", BooleanValue (true));
 
+  /*set up data rate 波特率设置  */
+  DataRateValue dataRateValue[numberOfUes];
+  dataRateValue[0] = DataRate ("1Mbps");
+  dataRateValue[1] = DataRate ("3Mbps");
+
+  uint64_t bitRate[numberOfUes];
+  bitRate[0] = dataRateValue[0].Get ().GetBitRate ();
+  bitRate[1] = dataRateValue[1].Get ().GetBitRate ();
+
+  // uint32_t packetSize = 1024; //bytes
+  uint32_t packetSize = 100; //bytes
+
+  NS_LOG_INFO ("bit rate 1 " << bitRate[0]);
+  NS_LOG_INFO ("bit rate 2 " << bitRate[1]);
+
+  double interPacketInterval[numberOfUes];
+  interPacketInterval[0] = static_cast<double> (packetSize * 8) / bitRate[0];
+  interPacketInterval[1] = static_cast<double> (packetSize * 8) / bitRate[1];
+
+  Time udpInterval[numberOfUes];
+  udpInterval[0] = Seconds (interPacketInterval[0]);
+  udpInterval[1] = Seconds (interPacketInterval[1]);
+
+  NS_LOG_INFO ("UDP will use application interval " << udpInterval[0].GetSeconds () << " sec");
+  NS_LOG_INFO ("UDP will use application interval " << udpInterval[1].GetSeconds () << " sec");
+
+
+
   // Command line arguments
   CommandLine cmd;
   cmd.AddValue ("simTime", "Total duration of the simulation (in seconds)", simTime);
   cmd.AddValue ("enbTxPowerDbm", "TX power [dBm] used by HeNBs (default = 46.0)", enbTxPowerDbm);
 
   cmd.Parse (argc, argv);
+
+
 
 
   Ptr<LteHelper> lteHelper = CreateObject<LteHelper> ();
@@ -224,32 +297,6 @@ main (int argc, char *argv[])
   NS_LOG_INFO ("setting up applications");
 
 
-
-  DataRateValue dataRateValue[numberOfUes];
-  dataRateValue[0] = DataRate ("1Mbps");
-  dataRateValue[1] = DataRate ("3Mbps");
-
-  uint64_t bitRate[numberOfUes];
-  bitRate[0] = dataRateValue[0].Get ().GetBitRate ();
-  bitRate[1] = dataRateValue[1].Get ().GetBitRate ();
-
-  // uint32_t packetSize = 1024; //bytes
-  uint32_t packetSize = 100; //bytes
-
-  NS_LOG_INFO ("bit rate 1 " << bitRate[0]);
-  NS_LOG_INFO ("bit rate 2 " << bitRate[1]);
-
-  double interPacketInterval[numberOfUes];
-  interPacketInterval[0] = static_cast<double> (packetSize * 8) / bitRate[0];
-  interPacketInterval[1] = static_cast<double> (packetSize * 8) / bitRate[1];
-
-  Time udpInterval[numberOfUes];
-  udpInterval[0] = Seconds (interPacketInterval[0]);
-  udpInterval[1] = Seconds (interPacketInterval[1]);
-
-  NS_LOG_INFO ("UDP will use application interval " << udpInterval[0].GetSeconds () << " sec");
-  NS_LOG_INFO ("UDP will use application interval " << udpInterval[1].GetSeconds () << " sec");
-
   // randomize a bit start times to avoid simulation artifacts
   // (e.g., buffer overflows due to packet transmissions happening
   // exactly at the same time)
@@ -292,10 +339,10 @@ main (int argc, char *argv[])
           dlpf.localPortStart = dlPort[u];
           dlpf.localPortEnd = dlPort[u];
           tft->Add (dlpf);
-          EpcTft::PacketFilter ulpf;
-          ulpf.remotePortStart = ulPort[u];
-          ulpf.remotePortEnd = ulPort[u];
-          tft->Add (ulpf);
+          // EpcTft::PacketFilter ulpf;
+          // ulpf.remotePortStart = ulPort[u];
+          // ulpf.remotePortEnd = ulPort[u];
+          // tft->Add (ulpf);
           EpsBearer bearer (EpsBearer::NGBR_VIDEO_TCP_DEFAULT);
           lteHelper->ActivateDedicatedEpsBearer (ueLteDevs.Get (u), bearer, tft);
 
@@ -354,44 +401,3 @@ main (int argc, char *argv[])
 }
 
 
-void
-Ue1ReceivePacket (Ptr<const Packet> packet, const Address &srcAddress, const Address &destAddress)
-{
-  // InetSocketAddress::ConvertFrom(destAddress).GetIpv4 ();
-  switch(InetSocketAddress::ConvertFrom (destAddress).GetPort ())
-  {
-    case DLPORT1:
-      ByteCounter1 += packet->GetSize ();
-      break;
-    case DLPORT2:
-      ByteCounter2 += packet->GetSize ();
-      break;
-  }
-
-  //std::cout<<"ByteCounter1:"<<ByteCounter1<<std::endl;
-}
-
-void
-Throughput(bool firstWrite, Time binSize, std::string fileName)
-{
-  std::ofstream output;
-
-  if (firstWrite == true)
-    {
-      output.open (fileName.c_str (), std::ofstream::out);
-      firstWrite = false;
-    }
-  else
-    {
-      output.open (fileName.c_str (), std::ofstream::app);
-    }
-
-  //Instantaneous throughput every 200 ms
-  double  throughput1 = (ByteCounter1 - oldByteCounter1)*8/binSize.GetSeconds ()/1024/1024;
-  double  throughput2 = (ByteCounter2 - oldByteCounter2)*8/binSize.GetSeconds ()/1024/1024;
-  output << Simulator::Now().GetSeconds() << " " << throughput1 << " " << throughput2 << std::endl;
-  // std::cout << Simulator::Now().GetSeconds() << " " << throughput << std::endl;
-  oldByteCounter1 = ByteCounter1;
-  oldByteCounter2 = ByteCounter2;
-  Simulator::Schedule (binSize, &Throughput, firstWrite, binSize, fileName);
-}
