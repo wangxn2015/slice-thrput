@@ -369,13 +369,14 @@ main (int argc, char *argv[])
 void
 ueThroughput(bool firstWrite, Time binSize, std::string fileName)
 {
-  static double RbitRate[4]={4.2,4.2,4.2,4.2};
-  ChangeDataRate(RbitRate); 
-  RbitRate[0]+=0.2;
-  RbitRate[1]-=0.2;
-  RbitRate[2]+=0.1;
-  RbitRate[3]-=0.1;  
-  std::cout << Simulator::Now().GetSeconds() << "  bitRate0: " << RbitRate[0] << "  bitRate1: " << RbitRate[1]<< std::endl;
+  //此处代码可调整数据率×××××××××××××××××××××××××××××××××××××××××××××××××××××××××××
+  // static double RbitRate[4]={4.2,4.2,4.2,4.2};
+  // ChangeDataRate(RbitRate); 
+  // RbitRate[0]+=0.2;
+  // RbitRate[1]-=0.2;
+  // RbitRate[2]+=0.1;
+  // RbitRate[3]-=0.1;  
+  // std::cout << Simulator::Now().GetSeconds() << "  bitRate0: " << RbitRate[0] << "  bitRate1: " << RbitRate[1]<< std::endl;
 
 
   std::ofstream output;
@@ -392,7 +393,8 @@ ueThroughput(bool firstWrite, Time binSize, std::string fileName)
   //Instantaneous throughput every 200 ms
   for(int i=0;i<4;i++)
   {
-    throughput[i] = r[i]*(ByteCounter[i] - oldByteCounter[i])*8/binSize.GetSeconds ()/1024/1024;
+    // throughput[i] = r[i]*(ByteCounter[i] - oldByteCounter[i])*8/binSize.GetSeconds ()/1024/1024;
+    throughput[i] = r[i]*(ByteCounter[i] - oldByteCounter[i])*8/binSize.GetSeconds ()/1000/1000;
     oldByteCounter[i] = ByteCounter[i];
   }
   output << Simulator::Now().GetSeconds() << " " << throughput[0] << " " << throughput[1] << " " \
