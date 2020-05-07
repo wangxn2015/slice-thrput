@@ -40,14 +40,8 @@ NS_LOG_COMPONENT_DEFINE ("DynamicThrput");
 #define MaxDataRate "4.24Mbps"  //4Mbps for each ue by realtime capture
 
 
-uint32_t ByteCounter1 = 0;
-uint32_t oldByteCounter1 = 0;
-uint32_t ByteCounter2 = 0;
-uint32_t oldByteCounter2 = 0;
-uint32_t ByteCounter3 = 0;
-uint32_t oldByteCounter3 = 0;
-uint32_t ByteCounter4 = 0;
-uint32_t oldByteCounter4 = 0;
+uint32_t ByteCounter[4] = {0,0,0,0};
+uint32_t oldByteCounter[4] = {0,0,0,0};
 
 const uint16_t numberOfUes = 4;
 const uint16_t numberOfEnbs = 1;
@@ -55,30 +49,32 @@ const uint16_t numberOfEnbs = 1;
 uint16_t numBearersPerUe = 1;
 double distance = 120.0; // m
 
-double simTime = (double)(3) ; //  sec  模拟时间
+double simTime = (double)(3) ; //  sec  模拟时间总长度
 
 double enbTxPowerDbm = 46.0;
 // Install and start applications on UEs and remote host
 const uint16_t dlPort[numberOfUes] = {10000,10001,10002,10003};
-// const uint16_t ulPort[numberOfUes] = {20000,20001};//
+
 
 /*set up data rate 波特率设置  */
 DataRateValue dataRateValue[numberOfUes];
 uint64_t bitRate[numberOfUes];
-// uint32_t packetSize = 1024; //bytes
-uint32_t packetSize = 1000; //bytes
+uint32_t packetSize = 1024; //bytes
 double interPacketInterval[numberOfUes];
 Time udpInterval[numberOfUes];
-double r0=1,r1=1,r2=1,r3=1; //调整传输速度比例
-
+double r0=1,r1=1,r2=1,r3=1;
+double r[4]={1,1,1,1};
+double  throughput[4];
 
 void PrintLocation();
 void ReceivePacket (Ptr<const Packet> packet, const Address &srcAddress, const Address &destAddress);
 void ueThroughput(bool firstWrite, Time binSize, std::string fileName);
 void PrintUePosition (uint64_t imsi);
 void GetUePosition(Time period);
-void ChangeDataRate(double bitRate0, double bitRate1, double bitRate2, double bitRate3 );
+void ChangeDataRate(double *bit_rate);
+// void ChangeDataRate(double bitRate0, double bitRate1, double bitRate2, double bitRate3 );
 // void ChangeDataRate(uint64_t bitRate0, uint64_t bitRate1, uint64_t bitRate2, uint64_t bitRate3 );
+
 /**×××××××××××××××××××××××××××××××××××××××××××××××××××××××××××××××××××××
 
                                 主函数
@@ -373,8 +369,16 @@ main (int argc, char *argv[])
 void
 ueThroughput(bool firstWrite, Time binSize, std::string fileName)
 {
+  static double RbitRate[4]={4.2,4.2,4.2,4.2};
+  ChangeDataRate(RbitRate); 
+  RbitRate[0]+=0.2;
+  RbitRate[1]-=0.2;
+  RbitRate[2]+=0.1;
+  RbitRate[3]-=0.1;  
+  std::cout << Simulator::Now().GetSeconds() << "  bitRate0: " << RbitRate[0] << "  bitRate1: " << RbitRate[1]<< std::endl;
+
+
   std::ofstream output;
-  // std::cout << Simulator::Now().GetSeconds() << "enter thrput " << std::endl;
   if (firstWrite == true)
     {
       output.open (fileName.c_str (), std::ofstream::out);
@@ -383,36 +387,18 @@ ueThroughput(bool firstWrite, Time binSize, std::string fileName)
   else
     {
       output.open (fileName.c_str (), std::ofstream::app);
-    }
- 
+    } 
 
   //Instantaneous throughput every 200 ms
-  double  throughput1 = r0*(ByteCounter1 - oldByteCounter1)*8/binSize.GetSeconds ()/1024/1024;
-  double  throughput2 = r1*(ByteCounter2 - oldByteCounter2)*8/binSize.GetSeconds ()/1024/1024;
-  double  throughput3 = r2*(ByteCounter3 - oldByteCounter3)*8/binSize.GetSeconds ()/1024/1024;
-  double  throughput4 = r3*(ByteCounter4 - oldByteCounter4)*8/binSize.GetSeconds ()/1024/1024; 
-  output << Simulator::Now().GetSeconds() << " " << throughput1 << " " << throughput2 << " " \
-          << throughput3<< " " << throughput4 << std::endl;
+  for(int i=0;i<4;i++)
+  {
+    throughput[i] = r[i]*(ByteCounter[i] - oldByteCounter[i])*8/binSize.GetSeconds ()/1024/1024;
+    oldByteCounter[i] = ByteCounter[i];
+  }
+  output << Simulator::Now().GetSeconds() << " " << throughput[0] << " " << throughput[1] << " " \
+          << throughput[2]<< " " << throughput[3] << std::endl;
   // std::cout << Simulator::Now().GetSeconds() << " " << throughput4 << std::endl;
 
-  oldByteCounter1 = ByteCounter1;
-  oldByteCounter2 = ByteCounter2;
-  oldByteCounter3 = ByteCounter3;
-  oldByteCounter4 = ByteCounter4;
-  //在此处模拟调整速度，测试成功
-  static double bitRate0=4.2;
-  static double bitRate1=4.2;
-  static double bitRate2=4.2;
-  static double bitRate3=4.2; 
-  //输入4个新值 如4.2或2.0，计算出比例r0,r1..r4
-  //再下一个调度周期通过r0-r4发生变化，模拟通讯速度变化
-  ChangeDataRate(bitRate0, bitRate1, bitRate2,bitRate3 ); 
-  //
-  bitRate0+=0.2;
-  bitRate1-=0.2;
-  bitRate2+=0.1;
-  bitRate3-=0.1;
-  
   Simulator::Schedule (binSize, &ueThroughput, firstWrite, binSize, fileName);
 }
 
@@ -431,16 +417,16 @@ ReceivePacket (Ptr<const Packet> packet, const Address &srcAddress, const Addres
   switch(InetSocketAddress::ConvertFrom (destAddress).GetPort ())
   {
     case DLPORT1:
-      ByteCounter1 += packet->GetSize ();
+      ByteCounter[0] += packet->GetSize ();
       break;
     case DLPORT2:
-      ByteCounter2 += packet->GetSize ();
+      ByteCounter[1] += packet->GetSize ();
       break;
     case DLPORT3:
-      ByteCounter3 += packet->GetSize ();
+      ByteCounter[2] += packet->GetSize ();
       break;
     case DLPORT4:
-      ByteCounter4 += packet->GetSize ();
+      ByteCounter[3] += packet->GetSize ();
       break;      
   }
 
@@ -483,16 +469,24 @@ GetUePosition(Time period)
 
 
 
+// void ChangeDataRate(double bitRate0, double bitRate1, double bitRate2, double bitRate3 )
+// // void ChangeDataRate(uint64_t bitRate0, uint64_t bitRate1, uint64_t bitRate2, uint64_t bitRate3 )
+// {
+//   // r0 = bitRate0/bitRate[0];
+//   // r1 = bitRate1/bitRate[1];
+//   // r2 = bitRate2/bitRate[2];
+//   // r3 = bitRate3/bitRate[3];
+//   r0 = bitRate0*1000/bitRate[0]*1000;
+//   r1 = bitRate1*1000/bitRate[1]*1000;
+//   r2 = bitRate2*1000/bitRate[2]*1000;
+//   r3 = bitRate3*1000/bitRate[3]*1000;
+// }
 
-void ChangeDataRate(double bitRate0, double bitRate1, double bitRate2, double bitRate3 )
-// void ChangeDataRate(uint64_t bitRate0, uint64_t bitRate1, uint64_t bitRate2, uint64_t bitRate3 )
+void ChangeDataRate(double *bit_rate )
 {
-  // r0 = bitRate0/bitRate[0];
-  // r1 = bitRate1/bitRate[1];
-  // r2 = bitRate2/bitRate[2];
-  // r3 = bitRate3/bitRate[3];
-  r0 = bitRate0*1000/bitRate[0]*1000;
-  r1 = bitRate1*1000/bitRate[1]*1000;
-  r2 = bitRate2*1000/bitRate[2]*1000;
-  r3 = bitRate3*1000/bitRate[3]*1000;
+  for(int i=0;i<4;i++)
+  {
+    r[i] = *(bit_rate+i)*1000/bitRate[i]*1000;
+    std::cout<<"r"<<i<<":"<<r[i]<<std::endl;
+  }
 }
