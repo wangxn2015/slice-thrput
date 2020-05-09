@@ -79,7 +79,7 @@ std::map<uint32_t, std::vector<double> > *m_actionPattern = NULL;
 float m_reward = 0.0;
 
 //required data rate Mbps
-const float UERequired[4]={5,6,2,0.5};
+const double UERequired[4]={5,6,2,0.5};
 const float weight1[4]={0.9, 0.9, 0.5, 0.2};
 const float weight2[4]={0.9, 0.7, 0.6, 0.2};
 

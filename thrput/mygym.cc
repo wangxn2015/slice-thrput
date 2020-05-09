@@ -38,8 +38,8 @@ MyGymEnv::MyGymEnv ()
   NS_LOG_FUNCTION (this);
   m_interval = Seconds(0.2);
   std::cout<< "stepTime: "<< m_interval << std::endl;
-  initR ();
 
+  initR ();
   Simulator::Schedule (Seconds(0.0), &MyGymEnv::ScheduleNextStateReadInit, this);
 
 }
@@ -49,9 +49,8 @@ MyGymEnv::MyGymEnv (Time stepTime)
   NS_LOG_FUNCTION (this);
   m_interval = stepTime;
   std::cout<< "stepTime: "<< m_interval << std::endl;
+
   initR ();
-
-
   Simulator::Schedule (Seconds(0.0), &MyGymEnv::ScheduleNextStateReadInit, this);
 }
 
@@ -61,7 +60,7 @@ void MyGymEnv::initR ()
   // generate random data
   for (uint32_t i = 0; i<4; i++)
   {
-    r[i] = rngDouble->GetValue(0, 0.2);
+    r[i] = rngDouble->GetValue(0, 0.3);
   }
 }
 
@@ -276,22 +275,29 @@ MyGymEnv::ExecuteActions(Ptr<OpenGymDataContainer> action)
 void MyGymEnv::ProcessAction()
 {
   std::map<uint32_t, std::vector<double>>::iterator iter = m_actionPattern->find(m_action_val);
-  std::vector<double> vec = iter->second;
-  if(m_action_val==0)
+  std::vector<double> vec = iter->second;//获得动作矩阵，矩阵中有一个值为0.2 -0.2 or 0
+  if(m_action_val==0) //动作0 代表无动作 [0 0 0 0] 
   {
-    m_reward+=1;
+    m_reward+=1; //奖励加1，用来在后面处理过程里中和执行任意非零动作后的减一操作
   }
   else
   {
     /* code */
-    float sum=0;
+    double sum=0;
     for(int i =0; i<4; i++)
     {
       throughput[i]+=vec[i];
-      if(throughput[i]<0.1)
-        throughput[i]=0.1;
+      //如果输出要求为0
+      // if(throughput[i]<0.1) //如输出小于0.1，则等于0.1
+      if(throughput[i]<0) //如输出小于0.1，则等于0.1
+      {
+        if(UERequired[i]==0) //如果用户要求流量==0，则不提供流量
+          throughput[i]=0;
+        else
+          throughput[i]=0.1;
+      }            
     }
-    if(sum >=16) 
+    if(sum >16) 
     {
       for(int i =0; i<4; i++)
       {

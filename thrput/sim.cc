@@ -110,9 +110,8 @@ main (int argc, char *argv[])
    *      |     |                                             d = distance
    *            o (0, 0, 0)                                   
    */
-
-  RngSeedManager::SetSeed (1);
-  RngSeedManager::SetRun (simSeed);
+  RngSeedManager::SetSeed (simSeed);
+  RngSeedManager::SetRun (2);
 
   // OpenGym Env
   Ptr<OpenGymInterface> openGymInterface = CreateObject<OpenGymInterface> (openGymPort);
