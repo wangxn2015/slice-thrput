@@ -178,10 +178,11 @@ bool
 MyGymEnv::GetGameOver()
 {
   bool isGameOver = false;
-  bool test = false;
-  static int stepCounter = 0.0;
+  bool test = true;
+
   stepCounter += 1;
-  if (stepCounter == 20 && test) {
+  if (stepCounter == 10 && test) {
+
       isGameOver = true;
   }
   NS_LOG_UNCOND ("MyGetGameOver: " << isGameOver);
@@ -248,7 +249,7 @@ std::string
 MyGymEnv::GetExtraInfo()
 {
   std::string myInfo = "testInfo";
-  myInfo += "|no info";
+  myInfo += "| counter" + std::to_string(stepCounter);
   NS_LOG_UNCOND("MyGetExtraInfo: " << myInfo);
   return myInfo;
 }
@@ -271,14 +272,16 @@ MyGymEnv::ExecuteActions(Ptr<OpenGymDataContainer> action)
   return true;
 }
 
-
+//process action and rewards preprocess
 void MyGymEnv::ProcessAction()
 {
+  m_reward = 0; //核算本step前，奖励清零
   std::map<uint32_t, std::vector<double>>::iterator iter = m_actionPattern->find(m_action_val);
   std::vector<double> vec = iter->second;//获得动作矩阵，矩阵中有一个值为0.2 -0.2 or 0
   if(m_action_val==0) //动作0 代表无动作 [0 0 0 0] 
   {
-    m_reward+=1; //奖励加1，用来在后面处理过程里中和执行任意非零动作后的减一操作
+    // m_reward+=NumberOfUes; //奖励加NumberOfUes，用来在后面处理过程里中和执行任意非零动作后的减一操作
+    m_reward+=1;
   }
   else
   {
@@ -287,6 +290,7 @@ void MyGymEnv::ProcessAction()
     for(int i =0; i<4; i++)
     {
       throughput[i]+=vec[i];
+      sum+=throughput[i];
       //如果输出要求为0
       // if(throughput[i]<0.1) //如输出小于0.1，则等于0.1
       if(throughput[i]<0) //如输出小于0.1，则等于0.1
@@ -324,47 +328,56 @@ void MyGymEnv::calculateReward()
 
   for(int i=0;i<4;i++)
   {
-    if (throughput[i]>= UERequired[i])
+    if (throughput[i] < UERequired[i])// 不满足
     {
-      m_reward += UERequired[i]*weight1[i]*weight2[i]*Alph;
+      m_reward -=1;
+      std::cout<<"$i: "<<i<<" ***#1 not satisfy"<<std::endl;
+      if(throughput_old[i] < UERequired[i] && throughput[i] -0.16 >= throughput_old[i]) //新速率比旧速率增长
+      {
+        m_reward +=6; //4ue 有一个增加 就能奖励 6-n-1 (行动分）
+        std::cout<<"***#1-1 but grow"<<std::endl;
+      }
+      if(throughput[i] < UERequired[i] && throughput_old[i] >= UERequired[i]) //从满足到不满足条件
+      { 
+        m_reward -= UERequired[i]*weight1[i]*weight2[i]*Alph;
+        time_old[i] = Simulator::Now().GetSeconds();
+        std::cout<<"***#1-2 dropped from stsf"<<std::endl;
+      }
     }
-    else
+    else //满足速率要求
     {
-      m_reward -=2;
-    }    
+      // m_reward +=1;
+      std::cout<<"$i: "<<i<<" ***#2 satisfy"<<std::endl;
+      if(throughput_old[i] >= UERequired[i] && throughput[i] -0.1 > throughput_old[i]) // 满足后继续增加
+      {
+        m_reward -=2;
+        std::cout<<"***#2-1 but keep growing"<<std::endl;
+      } //
 
+      if ( fabs(throughput[i] - throughput_old[i]) < 0.2 && m_action_val==0) //无动作，满足并维持原状
+      {
+        m_reward +=1;
+        std::cout<<"***#2-2 and no more action"<<std::endl;
+      } //0.5
+
+      if(throughput_old[i] < UERequired[i] && throughput[i] > UERequired[i])//动作后 第一次满足
+      {
+        double tt = Simulator::Now().GetSeconds();
+        m_reward += UERequired[i]*weight1[i]*weight2[i]*Alph/(tt-time_old[i]);
+        std::cout<<"***#2-3 and first time"<<std::endl;
+      }
+
+      if ( fabs(throughput[i] - throughput_old[i]) < 0.11 && m_action_val!=0 && ((int)m_action_val-1)/2 == i) //满足要求，但对应动作后速率改变有限，扣分
+      {m_reward -=2;std::cout<<"***#2-4 limited grow"<<std::endl;} //数值可能需要调整
+   
+
+    }
+    
+    throughput_old[i]=throughput[i];
+    // std::cout<<"$$$$$ throughput_old"<<throughput_old[i]<<std::endl;    
   }  
 
 }
-
-
-
-
-//
-// void
-// MyGymEnv::ReceivePacket (Ptr<MyGymEnv> entity, Ptr<const Packet> packet, const Address &srcAddress, const Address &destAddress)
-// {
-//   // InetSocketAddress::ConvertFrom(destAddress).GetIpv4 ();
-//   switch(InetSocketAddress::ConvertFrom (destAddress).GetPort ())
-//   {
-//     case DLPORT1:
-//       entity->ByteCounter[0] += packet->GetSize ();
-//       break;
-//     case DLPORT2:
-//       entity->ByteCounter[1] += packet->GetSize ();
-//       break;
-//     case DLPORT3:
-//       entity->ByteCounter[2] += packet->GetSize ();
-//       break;
-//     case DLPORT4:
-//       entity->ByteCounter[3] += packet->GetSize ();
-//       break;      
-//   }
-
-//   // std::cout<<"ByteCounter4:"<<ByteCounter4<<std::endl;
-// }
-
-
 
 
 

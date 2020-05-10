@@ -33,6 +33,8 @@
 #include "ns3/network-module.h"
 #include "ns3/config-store-module.h"
 
+#include <stdlib.h>
+#include <math.h>
 
 
 
@@ -44,7 +46,7 @@
 #define UeMinSpeed 0.5
 #define MaxDataRate "4.24Mbps"  //4Mbps for each ue by realtime capture
 #define NumberOfUes 4
-#define Alph 2
+#define Alph 100
 
 namespace ns3 {
 
@@ -72,6 +74,8 @@ uint32_t oldByteCounter[4] = {0,0,0,0};
 uint64_t *pBitRate = NULL;
 double r[4]={0,0,0,0};
 double  throughput[4];
+double  throughput_old[4]={0,0,0,0};
+double time_old[4]={0,0,0,0};
 std::string m_fileName = "Z_DynamicThrput4";
 bool m_firstWrite = true;
 uint32_t m_action_val=0;
@@ -82,7 +86,7 @@ float m_reward = 0.0;
 const double UERequired[4]={5,6,2,0.5};
 const float weight1[4]={0.9, 0.9, 0.5, 0.2};
 const float weight2[4]={0.9, 0.7, 0.6, 0.2};
-
+int stepCounter = 0;
 
 void initR ();
 void ChangeDataRate(double *bit_rate);

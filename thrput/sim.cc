@@ -55,9 +55,10 @@ void ReceivePacket (Ptr<const Packet> packet, const Address &srcAddress, const A
 int
 main (int argc, char *argv[])
 {
+
   // Parameters of the scenario
   uint32_t simSeed = 1;
-  double simulationTime = 2; //seconds
+  double simulationTime = 3; //seconds
   double envStepTime = 0.2; //seconds, ns3gym env step time interval
   uint32_t openGymPort = 5555;
   uint32_t testArg = 0;
@@ -264,12 +265,12 @@ main (int argc, char *argv[])
           NS_LOG_INFO ("installing UDP DL app for UE " << u);
           Ipv4Address ue_address = ueIpIfaces.GetAddress (u);
           std::cout<<"UE address:"<<ue_address<<std::endl;
-          UdpClientHelper dlClientHelper (ueIpIfaces.GetAddress (u), dlPort[u]);
+          UdpClientHelper dlClientHelper (ueIpIfaces.GetAddress (u), dlPort[u]); //ue are udp servers
           dlClientHelper.SetAttribute ("Interval", TimeValue (udpInterval[u]));
           dlClientHelper.SetAttribute ("PacketSize", UintegerValue (packetSize));
           dlClientHelper.SetAttribute ("MaxPackets", UintegerValue (1000000));
 
-          clientApps.Add (dlClientHelper.Install (remoteHost));
+          clientApps.Add (dlClientHelper.Install (remoteHost)); //remote host is client
           PacketSinkHelper dlPacketSinkHelper ("ns3::UdpSocketFactory",
                                                InetSocketAddress (Ipv4Address::GetAny (), dlPort[u]));
           // PacketSinkHelper dlPacketSinkHelper ("ns3::UdpSocketFactory",
@@ -310,25 +311,20 @@ main (int argc, char *argv[])
   // std::cout<<"/NodeList/" << ueNodes.Get (0)->GetId () << "/ApplicationList/*/$ns3::PacketSink/Rx"<<std::endl;
   // Config::ConnectWithoutContext (oss.str (), MakeBoundCallback (&MyGymEnv::ReceivePacket, myGymEnv));
   Config::ConnectWithoutContext (oss.str (), MakeCallback (&ReceivePacket));
-  /*        
-    bool firstWrite = true;
-    std::string fileName = "Z_DynamicThrput4";
-    Time binSize = Seconds (0.2);
-    Simulator::Schedule (binSize, &ueThroughput, firstWrite, binSize, fileName);
-  */
+
 
   // Time p = Seconds (0.5);
   // Simulator::Schedule (p, &GetUePosition, p);
   NS_LOG_INFO ("...Starting simulation...");
-          
 
   NS_LOG_UNCOND ("...Simulation start");
-  Simulator::Stop (Seconds (simulationTime));  //注释掉stop后，模拟器会持续运行
+  // Simulator::Stop (Seconds (simulationTime));  //注释掉stop后，模拟器会持续运行
   Simulator::Run ();
   NS_LOG_UNCOND ("...Simulation stop");
-
   openGymInterface->NotifySimulationEnd();
+        
   Simulator::Destroy ();
+
 
 }
 

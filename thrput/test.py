@@ -17,7 +17,7 @@ parser.add_argument('--start',
                     help='Start ns-3 simulation script 0/1, Default: 1')
 parser.add_argument('--iterations',
                     type=int,
-                    default=1,
+                    default=4,
                     help='Number of iterations, Default: 1')
 args = parser.parse_args()
 startSim = bool(args.start)
@@ -55,7 +55,8 @@ try:
 
         while True:
             stepIdx += 1
-            action = env.action_space.sample()
+            # action = env.action_space.sample()
+            action = {"discrete":5}
             print("---action: ", action)
 
             print("Step: ", stepIdx)

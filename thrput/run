@@ -1,0 +1,1 @@
+for run in {1..10}; do ./waf --run "contrib/opengym/examples/thrput"; sleep 1; done
