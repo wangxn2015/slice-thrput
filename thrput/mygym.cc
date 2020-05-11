@@ -181,7 +181,7 @@ MyGymEnv::GetGameOver()
   bool test = true;
 
   stepCounter += 1;
-  if (stepCounter == 10 && test) {
+  if (stepCounter == 800 && test) {
 
       isGameOver = true;
   }

@@ -112,7 +112,7 @@ main (int argc, char *argv[])
    *            o (0, 0, 0)                                   
    */
   RngSeedManager::SetSeed (simSeed);
-  RngSeedManager::SetRun (2);
+  RngSeedManager::SetRun (0);
 
   // OpenGym Env
   Ptr<OpenGymInterface> openGymInterface = CreateObject<OpenGymInterface> (openGymPort);
